@@ -1,24 +1,40 @@
-# qmux
+# groktunnel
 
-qmux is a wire protocol for multiplexing connections or streams into a single connection. It is based on the [SSH Connection Protocol](https://tools.ietf.org/html/rfc4254#page-5), which is the simplest, longest running, most widely deployed TCP multiplexing protocol with flow control. 
+Expose localhost HTTP servers with a public URL.
 
-It is meant as a drop-in layer for any stream capable transport (TCP, WebSocket, stdio, etc) to provide basic multiplexing. This brings any connection API to rough semantic parity with [QUIC](https://en.wikipedia.org/wiki/QUIC) multiplexing, so it can act as a stopgap or fallback when QUIC is not available. You can then design higher level protocols based on multiplexing semantics that sit on top of QUIC or any other streaming transport with qmux.
+This is the 5th or 6th implementation of this system since the original
+[localtunnel](https://github.com/progrium/localtunnel) in 2010, which was then
+cloned many times. It was then commercialized by [Ngrok](https://ngrok.com/).
 
-## Spec
+This is a standalone fork of the demo in https://github.com/progrium/qmux
 
-The specification is [here](https://github.com/progrium/qmux/blob/main/SPEC.md). It is a simplified version of the [Channel Mechanism](https://tools.ietf.org/html/rfc4254#page-5) in the SSH Connection Protocol.
+## Try it out
 
-## Implementations
+First we run the groktunnel server. Normally this would be run on a server, but
+by default uses `vcap.me` for a hostname which resolves all of its subdomains to
+localhost.
 
-- [x] [Golang](https://github.com/progrium/qmux/tree/main/golang) (best reference)
-- [x] [TypeScript](https://github.com/progrium/qmux/tree/main/typescript)
-- [ ] Python
-- [ ] C# (help wanted)
+```
+$ ./groktunnel
+2021/04/29 16:10:35 groktunnel server [vcap.me] ready!
+```
 
-## Demos
+Now run a local web server. Here is how to run a server listing a file directory
+with Python:
 
-- [groktunnel](https://github.com/progrium/qmux/tree/main/demos/groktunnel): Ephemeral localhost public forwarding system for HTTP similar to Ngrok in less than 150 lines of Go.
+```
+$ python -m SimpleHTTPServer
+Serving HTTP on 0.0.0.0 port 8000 ...
+```
 
-## About
+Then we run groktunnel as a client by giving it the local port to expose.
 
-Licensed MIT
+```
+$ ./groktunnel 8000
+port 8000 http available at:
+http://y8eyshnpol.vcap.me:9999
+```
+
+That address should serve the same content as the local web server on 8000. For
+added effect, run both client and server with `-p 80`, which will require root
+to run the server.

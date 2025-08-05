@@ -10,7 +10,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"net/http/httputil"
 	"strings"
 	"time"
 
@@ -20,24 +19,37 @@ import (
 
 func main() {
 	var port = flag.String("p", "9999", "server port to use")
-	var host = flag.String("h", "vcap.me", "server hostname to use")
+	var host = flag.String("h", "localhost", "server hostname to use")
 	var addr = flag.String("b", "127.0.0.1", "ip to bind [server only]")
 	flag.Parse()
 
 	// client usage: groktunnel [-h=<server hostname>] <local port>
 	if flag.Arg(0) != "" {
-		conn, err := net.Dial("tcp", net.JoinHostPort(*host, *port))
+		fmt.Println("serving")
+
+		hostPort := net.JoinHostPort(*host, *port)
+		fmt.Println("Connecting to:", hostPort)
+
+		conn, err := net.Dial("tcp", hostPort)
 		fatal(err)
-		client := httputil.NewClientConn(conn, bufio.NewReader(conn))
+
 		req, err := http.NewRequest("GET", "/", nil)
 		req.Host = net.JoinHostPort(*host, *port)
 		fatal(err)
-		client.Write(req)
-		resp, _ := client.Read(req)
+
+		// Write the HTTP request manually
+		err = req.Write(conn)
+		fatal(err)
+
+		// Read the HTTP response manually
+		resp, err := http.ReadResponse(bufio.NewReader(conn), req)
+		fatal(err)
+
 		fmt.Printf("port %s http available at:\n", flag.Arg(0))
 		fmt.Printf("http://%s\n", resp.Header.Get("X-Public-Host"))
-		c, _ := client.Hijack()
-		sess := session.New(c)
+
+		// The connection is already hijacked since we're using raw TCP
+		sess := session.New(conn)
 		defer sess.Close()
 		for {
 			ch, err := sess.Accept()
@@ -46,7 +58,6 @@ func main() {
 			fatal(err)
 			go join(conn, ch)
 		}
-		return
 	}
 
 	// server usage: groktunnel [-h=<hostname>] [-b=<bind ip>]
